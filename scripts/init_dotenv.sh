@@ -3,14 +3,13 @@
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ENV_FILE="$(pwd)/.env"
 
-echo "Working directory: $(pwd)"
-echo "Script directory: $SCRIPT_DIR"
-echo "Environment file: $ENV_FILE"
-
 cd "$SCRIPT_DIR"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "File .env does not exist: $ENV_FILE"
+    echo "Working directory: $(pwd)"
+    echo "Script directory: $SCRIPT_DIR"
+    echo "Environment file: $ENV_FILE"
     touch "$ENV_FILE"
     if [ $? -ne 0 ]; then
         echo "Error creating .env in $ENV_FILE."
