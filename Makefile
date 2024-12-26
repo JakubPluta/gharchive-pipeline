@@ -3,8 +3,8 @@
 prepdir:
 	@echo "Creating directories for airflow: ./dags, ./logs, ./plugins, ./config, ./tests (if not exist)"
 	mkdir -p ./dags ./logs ./plugins ./tests ./config
-	@echo "Pushing AIRFLOW_UID to .env file"
-	if ! grep -q "AIRFLOW_UID" .env; then echo "AIRFLOW_UID=$(shell id -u)" >> .env; fi
+	@echo "creating default env file"
+	./scripts/init_dotenv.sh
 
 local-install:
 	@echo "Installing dependencies locally"
@@ -39,5 +39,7 @@ cli:
 s3-conn:
 	@echo "Adding S3 connection to Airflow"
 	@CONTAINER_ID=$$(docker ps --filter "name=webserver" --format "{{.ID}}"); \
-	docker exec $$CONTAINER_ID /bin/bash -c "airflow connections add 's3' --conn-type 'aws' --conn-login 'USERNAME' --conn-password 'PASSWORD' --conn-extra '{\"endpoint_url\": \"http://host.docker.internal:9000\"}'"
+	MINIO_ROOT_LOGIN=$$(grep 'MINIO_ROOT_LOGIN' .env | cut -d '=' -f2); \
+	MINIO_ROOT_PASSWORD=$$(grep 'MINIO_ROOT_PASSWORD' .env | cut -d '=' -f2); \
+	docker exec $$CONTAINER_ID /bin/bash -c "airflow connections add 's3' --conn-type 'aws' --conn-login $$MINIO_ROOT_LOGIN --conn-password $$MINIO_ROOT_PASSWORD --conn-extra '{\"endpoint_url\": \"http://host.docker.internal:9000\"}'"
 
