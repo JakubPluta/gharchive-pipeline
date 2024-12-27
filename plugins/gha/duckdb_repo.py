@@ -1,4 +1,5 @@
 import contextlib
+from pathlib import Path
 from typing import Optional, Union
 
 import duckdb
@@ -9,6 +10,10 @@ import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+ROOT_PATH = Path(__file__).parent.parent.parent
+ROOT_PATH_ENV = ROOT_PATH / ".env"
 
 
 class DuckDBConnectionError(Exception):
@@ -43,7 +48,9 @@ class DuckDBConfiguration:
         Raises:
             KeyError: If MINIO_ROOT_USER or MINIO_ROOT_PASSWORD is not set.
         """
-        dotenv.load_dotenv() if path is None else dotenv.load_dotenv(path)
+        dotenv.load_dotenv(ROOT_PATH_ENV) if path is None else dotenv.load_dotenv(path)
+        logger.info("loaded .env file from %s", ROOT_PATH_ENV)
+
         try:
             aws_access_key_id = os.environ["MINIO_ROOT_USER"]
             aws_secret_access_key = os.environ["MINIO_ROOT_PASSWORD"]
@@ -54,16 +61,19 @@ class DuckDBConfiguration:
         return cls(aws_access_key_id, aws_secret_access_key, s3_endpoint)
 
     @property
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, str]:
         """
         Convert configuration to a dictionary.
 
         Booleans are converted to strings with value "true" or "false".
 
         Returns:
-            dict: The configuration as a dictionary.
+            dict[str, str]: The configuration as a dictionary.
         """
-        return {k: v if not isinstance(v, bool) else str(v).lower() for k, v in dataclasses.asdict(self)}
+        return {
+            key: str(value).lower() if isinstance(value, bool) else value
+            for key, value in dataclasses.asdict(self).items()
+        }
 
 
 class DuckDBRepository:
@@ -96,19 +106,14 @@ class DuckDBRepository:
             self.conn.close()
             self.conn = None
 
-    def __enter__(self) -> "DuckDBRepository":
-        """Enter the context manager and connect to the DuckDB database."""
-        if self.conn is not None:
-            logger.warning("duckdb connection already open")
-            return self
+    @contextlib.contextmanager
+    def connection_context(self):
+        """Context manager for managing the DuckDB connection."""
         self.connect()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit the context manager and close the DuckDB connection."""
-        self.close()
-        if exc_type is not None:
-            raise exc_val
+        try:
+            yield self
+        finally:
+            self.close()
 
     def _configure_s3_connection(self) -> None:
         """
@@ -118,6 +123,7 @@ class DuckDBRepository:
         self.conn.install_extension("httpfs")
         self.conn.load_extension("httpfs")
         for k, v in self._config.as_dict.items():
+            logger.info("setting %s to %s", k, v)
             self.conn.execute(f"SET {k}='{v}'")
 
     def execute(self, query: str, params: Optional[Union[dict, list, tuple]] = None) -> duckdb.DuckDBPyConnection:
@@ -196,7 +202,7 @@ class DuckDBRepository:
             self.execute(query, params)
 
 
-def get_default_duckdb_client_from_env(env_file_path: Optional[str] = None) -> DuckDBRepository:
+def get_default_duckdb_client_from_env(env_file_path: Optional[str] = None, is_container: bool = False) -> DuckDBRepository:
     """
     Get the default DuckDB client configured from environment variables and a .env file.
 
@@ -211,10 +217,14 @@ def get_default_duckdb_client_from_env(env_file_path: Optional[str] = None) -> D
 
     Args:
         env_file_path: The path to the .env file. Defaults to None.
+        is_container: Whether the environment is running in a container.
 
     Returns:
         DuckDBRepository: The default DuckDB client.
     """
     logger.info("getting default duckdb client from .env")
     config = DuckDBConfiguration.from_env(env_file_path)
+    if is_container and "localhost" in config.s3_endpoint:
+        logger.info("replacing localhost with host.docker.internal")
+        config.s3_endpoint = config.s3_endpoint.replace("localhost", "host.docker.internal")
     return DuckDBRepository(config)
