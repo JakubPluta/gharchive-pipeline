@@ -16,21 +16,25 @@ from airflow.operators.dummy import DummyOperator
 from airflow.providers.amazon.aws.transfers.s3_to_sql import S3ToSqlOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 
+
 def parse_parquet_generator(filepath):
+    import pyarrow as pa
     import pyarrow.parquet as pq
     table = pq.read_table(filepath)
-    yield from table.iterrows()
+    chunk_size = 1024
+    for batch in table.to_batches(chunk_size):
+        for row in batch.to_pylist():
+            yield row.values()
+
 
 
 
 logger = getLogger(__name__)
 
-
 AWS_CONN_ID = "aws_default"
 S3_BUCKET = "datalake"
 S3_KEY = "gharchive/raw"
 SQL_CONN_ID = "postgres"
-
 
 BASE_URL = "http://data.gharchive.org"
 
@@ -77,7 +81,6 @@ def _get_s3_partition_key(base_key: str, logical_date: pendulum.DateTime) -> str
     concurrency=1,
 )
 def github_archive_pipeline():
-
     @task
     def create_s3_bucket(s3_bucket: str) -> str:
         """
@@ -174,16 +177,18 @@ def github_archive_pipeline():
         destination_path = source_path.replace("raw", "clean")
         destination_path = destination_path.replace(".json.gz", ".parquet")
 
-        logger.info("preparing destination path for transformed data from source: %s to %s", source_path, destination_path)
+        logger.info("preparing destination path for transformed data from source: %s to %s", source_path,
+                    destination_path)
 
         with duck_client.connection_context() as client:
-            client.execute(f"CREATE OR REPLACE TABLE {raw_table_name} AS FROM read_json_auto('{source_path}', ignore_errors=true)")
+            client.execute(
+                f"CREATE OR REPLACE TABLE {raw_table_name} AS FROM read_json_auto('{source_path}', ignore_errors=true)")
             client.execute(f"CREATE OR REPLACE TABLE {clean_table_name} AS FROM ({query})")
             table = client.conn.table(clean_table_name)
             logger.info("writing cleaned parquet data to: %s", destination_path)
             table.write_parquet(destination_path)
-
-        return destination_path
+        file_key = destination_path.split(s3_bucket)[1]
+        return file_key
 
     create_table = PostgresOperator(
         task_id="create_table",
@@ -204,14 +209,14 @@ def github_archive_pipeline():
         """,
     )
 
-    transfer_s3_to_sql_generator = S3ToSqlOperator.partial(
+    transfer_s3_to_sql_generator = S3ToSqlOperator(
         task_id="transfer_s3_to_sql_paser_to_generator",
         s3_bucket=S3_BUCKET,
         aws_conn_id=AWS_CONN_ID,
         table="github_archive",
-        #column_list=,
         parser=parse_parquet_generator,
         sql_conn_id=SQL_CONN_ID,
+        s3_key='{{ task_instance.xcom_pull(task_ids="clean_raw_data") }}',
 
     )
 
@@ -219,12 +224,11 @@ def github_archive_pipeline():
     create_s3_bucket_task = create_s3_bucket(S3_BUCKET)
     load_gh_archive_task = github_archive_to_s3(s3_bucket=S3_BUCKET, s3_key=S3_KEY)
     clean_raw_data_task = clean_raw_data(s3_bucket=S3_BUCKET, s3_key=load_gh_archive_task)
-    s3_to_pg = transfer_s3_to_sql_generator.expand(s3_key=clean_raw_data_task)
+
     end = DummyOperator(task_id="end")
 
-    start >> [create_s3_bucket_task, create_table] >> load_gh_archive_task >> clean_raw_data_task >> s3_to_pg >> end
-
+    start >> [create_s3_bucket_task,
+              create_table] >> load_gh_archive_task >> clean_raw_data_task >> transfer_s3_to_sql_generator >> end
 
 
 github_archive_pipeline()
-
