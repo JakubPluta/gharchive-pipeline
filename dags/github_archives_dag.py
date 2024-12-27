@@ -11,6 +11,8 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow import DAG
 from airflow.decorators import task, dag
 from airflow.utils.dates import days_ago
+from gha.duckdb_repo import DuckDBConfiguration, DuckDBRepository, get_default_duckdb_client_from_env
+
 
 logger = getLogger(__name__)
 
@@ -103,18 +105,18 @@ def github_archive_pipeline():
         con.execute(f"CREATE OR REPLACE TABLE raw AS FROM read_json_auto('{source_path}', ignore_errors=true)")
 
         query = """
-        SELECT
-        id as event_id,
-        type as event_type,
-        created_at as event_created_at,
-        public as is_public,
-        actor.id as user_id,
-        actor.login as user_login,
-        actor.display_login as user_display_login,
-        repo.id as repo_id,
-        repo.name as repo_name,
-        repo.url as repo_url
-        FROM raw
+            SELECT
+            id as event_id,
+            type as event_type,
+            created_at as event_created_at,
+            public as is_public,
+            actor.id as user_id,
+            actor.login as user_login,
+            actor.display_login as user_display_login,
+            repo.id as repo_id,
+            repo.name as repo_name,
+            repo.url as repo_url
+            FROM raw
         """
         con.execute(f"CREATE OR REPLACE TABLE clean AS FROM ({query})")
         table = con.table("clean")

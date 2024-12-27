@@ -24,7 +24,7 @@ class DuckDBConfiguration:
     s3_url_style: str = "path"
 
     @classmethod
-    def from_env(cls) -> "DuckDBConfiguration":
+    def from_env(cls, path: Optional[str] = None) -> "DuckDBConfiguration":
         """
         Load configuration from environment variables and .env file.
 
@@ -43,7 +43,7 @@ class DuckDBConfiguration:
         Raises:
             KeyError: If MINIO_ROOT_USER or MINIO_ROOT_PASSWORD is not set.
         """
-        dotenv.load_dotenv()
+        dotenv.load_dotenv() if path is None else dotenv.load_dotenv(path)
         try:
             aws_access_key_id = os.environ["MINIO_ROOT_USER"]
             aws_secret_access_key = os.environ["MINIO_ROOT_PASSWORD"]
@@ -66,7 +66,7 @@ class DuckDBConfiguration:
         return {k: v if not isinstance(v, bool) else str(v).lower() for k, v in dataclasses.asdict(self)}
 
 
-class DuckdbRepository:
+class DuckDBRepository:
     """DuckDB repository class for executing SQL queries and managing transactions."""
 
     def __init__(self, duckdb_config: DuckDBConfiguration, db_path: Optional[str] = None):
@@ -96,7 +96,7 @@ class DuckdbRepository:
             self.conn.close()
             self.conn = None
 
-    def __enter__(self) -> "DuckdbRepository":
+    def __enter__(self) -> "DuckDBRepository":
         """Enter the context manager and connect to the DuckDB database."""
         if self.conn is not None:
             logger.warning("duckdb connection already open")
@@ -149,7 +149,7 @@ class DuckdbRepository:
         """Transaction context manager for the DuckDB connection.
 
         Example:
-            >>> duckdb_repo = DuckdbRepository()
+            >>> duckdb_repo = DuckDBRepository()
             >>> with duckdb_repo.transaction():
             ...     duckdb_repo.execute("INSERT INTO mytable VALUES (1, 2)")
 
@@ -194,3 +194,27 @@ class DuckdbRepository:
         """
         with self.transaction():
             self.execute(query, params)
+
+
+def get_default_duckdb_client_from_env(env_file_path: Optional[str] = None) -> DuckDBRepository:
+    """
+    Get the default DuckDB client configured from environment variables and a .env file.
+
+    The following environment variables are expected to be set:
+
+    - MINIO_ROOT_USER: The AWS access key ID.
+    - MINIO_ROOT_PASSWORD: The AWS secret access key.
+    - MINIO_ENDPOINT: The S3 endpoint URL. Defaults to "localhost:9000".
+
+    If a .env file is present, it will be loaded and the environment variables
+    will be overwritten with the values from the .env file.
+
+    Args:
+        env_file_path: The path to the .env file. Defaults to None.
+
+    Returns:
+        DuckDBRepository: The default DuckDB client.
+    """
+    logger.info("getting default duckdb client from .env")
+    config = DuckDBConfiguration.from_env(env_file_path)
+    return DuckDBRepository(config)
