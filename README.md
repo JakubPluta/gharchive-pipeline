@@ -28,12 +28,12 @@ git clone <repository-url>
 cd <repository-name>
 ```
 
-1. Set up the environment:
+2. Set up the environment:
 ```bash
 make prepdir
 ```
 
-1. Start the services:
+3. Start the services:
 ```bash
 make build
 ```
