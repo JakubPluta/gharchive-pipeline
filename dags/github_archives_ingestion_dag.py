@@ -57,7 +57,7 @@ def _get_github_archive(date: pendulum.DateTime) -> bytes | None:
 
 @dag(
     start_date=pendulum.today("UTC").subtract(
-        days=1
+        days=2
     ),  # for testing just load the last day
     end_date=pendulum.today("UTC").subtract(
         hours=2
