@@ -15,21 +15,9 @@ from gh.duckdb_repository import (
     get_default_duckdb_client_from_env,
 )
 from gh.utils import parse_parquet_generator, prepare_s3_partition_key
-
+from core import settings
 
 logger = getLogger(__name__)
-
-AWS_CONN_ID = "aws_default"
-SQL_CONN_ID = "postgres_default"
-
-S3_BUCKET = "datalake"
-S3_KEY = "gharchive/raw"
-
-
-GH_ARCHIVE_BASE_URL = "http://data.gharchive.org"
-SQL_TEMPLATES_PATH = ["include/sql/"]
-PG_DATABASE = "gharchive"
-CLEAN_PG_TABLE_NAME = "clean_gharchive"
 
 
 def _get_github_archive(date: pendulum.DateTime) -> bytes | None:
@@ -45,7 +33,7 @@ def _get_github_archive(date: pendulum.DateTime) -> bytes | None:
         The response body as bytes if successful, None if the request failed.
     """
     filename = f'{date.strftime("%Y-%m-%d-%-H")}.json.gz'
-    url = f"{GH_ARCHIVE_BASE_URL}/{filename}"
+    url = f"{settings.GH_ARCHIVE_BASE_URL}/{filename}"
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -66,9 +54,17 @@ def _get_github_archive(date: pendulum.DateTime) -> bytes | None:
     catchup=True,
     tags=["github"],
     max_active_runs=1,
-    template_searchpath=SQL_TEMPLATES_PATH,
+    template_searchpath=settings.SQL_TEMPLATES_PATH,
 )
 def github_archive_pipeline():
+    """DAG to fetch GitHub archive data and store it in an S3 bucket.
+
+    This DAG runs hourly and fetches GitHub archive data for the current hour.
+    1. The data is stored in an S3 bucket in a raw layer without any modifications in json.gz format.
+    2. The data is then `cleaned` with DuckDB and transformed into a Parquet file and stored in a clean layer in S3.
+    3. The cleaned data is then loaded into a Postgres table into gharchive database in clean_gharchive table.
+    """
+
     @task
     def create_s3_bucket(s3_bucket: str) -> str:
         """
@@ -80,7 +76,7 @@ def github_archive_pipeline():
         Returns:
             The name of the S3 bucket created.
         """
-        s3_hook = S3Hook(aws_conn_id=AWS_CONN_ID)
+        s3_hook = S3Hook(aws_conn_id=settings.AWS_CONN_ID)
         logger.info("checking if bucket %s exists", s3_bucket)
         if not s3_hook.check_for_bucket(bucket_name=s3_bucket):
             logger.info("bucket does not exist, creating bucket %s", s3_bucket)
@@ -103,7 +99,7 @@ def github_archive_pipeline():
         Returns:
             The S3 key where the data was stored.
         """
-        s3_hook = S3Hook(aws_conn_id=AWS_CONN_ID)
+        s3_hook = S3Hook(aws_conn_id=settings.AWS_CONN_ID)
         logical_date: pendulum.Datetime = context["logical_date"]
         s3_key = prepare_s3_partition_key(s3_key, logical_date)
 
@@ -186,26 +182,26 @@ def github_archive_pipeline():
 
     create_table = PostgresOperator(
         task_id="create_clean_gharchive_table",
-        postgres_conn_id=SQL_CONN_ID,
+        postgres_conn_id=settings.SQL_CONN_ID,
         sql="create_clean_gharchive_table.sql",
-        params={"table": CLEAN_PG_TABLE_NAME},
+        params={"table": settings.PG_TABLE_NAME},
     )
 
     transfer_s3_parquet_to_sql = S3ToSqlOperator(
         task_id="transfer_s3_parquet_to_sql",
-        s3_bucket=S3_BUCKET,
-        aws_conn_id=AWS_CONN_ID,
-        table=CLEAN_PG_TABLE_NAME,
+        s3_bucket=settings.S3_BUCKET,
+        aws_conn_id=settings.AWS_CONN_ID,
+        table=settings.PG_TABLE_NAME,
         parser=parse_parquet_generator,
-        sql_conn_id=SQL_CONN_ID,
+        sql_conn_id=settings.SQL_CONN_ID,
         s3_key='{{ task_instance.xcom_pull(task_ids="clean_raw_data") }}',
     )
 
     start = DummyOperator(task_id="start")
-    create_s3_bucket_task = create_s3_bucket(S3_BUCKET)
-    load_gh_archive_task = github_archive_to_s3(s3_bucket=S3_BUCKET, s3_key=S3_KEY)
+    create_s3_bucket_task = create_s3_bucket(settings.S3_BUCKET)
+    load_gh_archive_task = github_archive_to_s3(s3_bucket=settings.S3_BUCKET, s3_key=settings.S3_KEY)
     clean_raw_data_task = clean_raw_data(
-        s3_bucket=S3_BUCKET, s3_key=load_gh_archive_task
+        s3_bucket=settings.S3_BUCKET, s3_key=load_gh_archive_task
     )
 
     end = DummyOperator(task_id="end")

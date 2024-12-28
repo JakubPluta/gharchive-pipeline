@@ -1,0 +1,67 @@
+<svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with subtle grid -->
+  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#f0f0f0" stroke-width="1"/>
+  </pattern>
+  <rect width="800" height="400" fill="white"/>
+  <rect width="800" height="400" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="400" y="40" font-family="Arial" font-size="20" font-weight="bold" fill="#333" text-anchor="middle">GitHub Activity Analytics Pipeline</text>
+
+  <!-- GH Archive Box -->
+  <rect x="50" y="160" width="120" height="80" rx="10" fill="#28a745" stroke="#218838" stroke-width="2"/>
+  <text x="110" y="190" font-family="Arial" font-size="14" fill="white" text-anchor="middle" font-weight="bold">GH Archive</text>
+  <text x="110" y="210" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Event Data API</text>
+
+  <!-- Airflow Box -->
+  <rect x="240" y="140" width="140" height="120" rx="10" fill="#007bff" stroke="#0056b3" stroke-width="2"/>
+  <text x="310" y="170" font-family="Arial" font-size="14" fill="white" text-anchor="middle" font-weight="bold">Apache Airflow</text>
+  <text x="310" y="190" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Orchestration</text>
+  <text x="310" y="210" font-family="Arial" font-size="12" fill="white" text-anchor="middle">• Hourly Data Fetch</text>
+  <text x="310" y="230" font-family="Arial" font-size="12" fill="white" text-anchor="middle">• Daily Aggregation</text>
+
+  <!-- MinIO Box 1 (Raw) -->
+  <rect x="450" y="80" width="120" height="80" rx="10" fill="#fd7e14" stroke="#d16012" stroke-width="2"/>
+  <text x="510" y="110" font-family="Arial" font-size="14" fill="white" text-anchor="middle" font-weight="bold">MinIO</text>
+  <text x="510" y="130" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Raw Data</text>
+  <text x="510" y="145" font-family="Arial" font-size="10" fill="white" text-anchor="middle">(S3 Compatible)</text>
+
+  <!-- DuckDB Box -->
+  <rect x="450" y="180" width="120" height="80" rx="10" fill="#6f42c1" stroke="#553099" stroke-width="2"/>
+  <text x="510" y="210" font-family="Arial" font-size="14" fill="white" text-anchor="middle" font-weight="bold">DuckDB</text>
+  <text x="510" y="230" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Data Processing</text>
+
+  <!-- MinIO Box 2 (Processed) -->
+  <rect x="450" y="280" width="120" height="80" rx="10" fill="#fd7e14" stroke="#d16012" stroke-width="2"/>
+  <text x="510" y="310" font-family="Arial" font-size="14" fill="white" text-anchor="middle" font-weight="bold">MinIO</text>
+  <text x="510" y="330" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Processed Data</text>
+
+  <!-- PostgreSQL Box -->
+  <rect x="640" y="160" width="120" height="80" rx="10" fill="#17a2b8" stroke="#138496" stroke-width="2"/>
+  <text x="700" y="190" font-family="Arial" font-size="14" fill="white" text-anchor="middle" font-weight="bold">PostgreSQL</text>
+  <text x="700" y="210" font-family="Arial" font-size="12" fill="white" text-anchor="middle">Analytics DB</text>
+
+  <!-- Arrows with labels -->
+  <path d="M170 200 H240" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="205" y="190" font-family="Arial" font-size="10" fill="#666">JSON Events</text>
+
+  <path d="M380 180 C415 180 415 120 450 120" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="415" y="150" font-family="Arial" font-size="10" fill="#666">Raw Data</text>
+
+  <path d="M510 160 L510 180" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="530" y="170" font-family="Arial" font-size="10" fill="#666">Load</text>
+
+  <path d="M510 260 L510 280" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="530" y="270" font-family="Arial" font-size="10" fill="#666">Store</text>
+
+  <path d="M570 320 C605 320 605 200 640 200" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="605" y="280" font-family="Arial" font-size="10" fill="#666">Load to DB</text>
+
+  <!-- Arrow Marker -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#495057"/>
+    </marker>
+  </defs>
+</svg>
