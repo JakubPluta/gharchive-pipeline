@@ -56,7 +56,9 @@ class DuckDBConfiguration:
             aws_secret_access_key = os.environ["MINIO_ROOT_PASSWORD"]
             s3_endpoint = os.getenv("MINIO_ENDPOINT", "localhost:9000")
         except KeyError:
-            raise Exception("MINIO_ROOT_USER and MINIO_ROOT_PASSWORD must be set in .env file or environment variables")
+            raise Exception(
+                "MINIO_ROOT_USER and MINIO_ROOT_PASSWORD must be set in .env file or environment variables"
+            )
 
         return cls(aws_access_key_id, aws_secret_access_key, s3_endpoint)
 
@@ -79,7 +81,9 @@ class DuckDBConfiguration:
 class DuckDBRepository:
     """DuckDB repository class for executing SQL queries and managing transactions."""
 
-    def __init__(self, duckdb_config: DuckDBConfiguration, db_path: Optional[str] = None):
+    def __init__(
+        self, duckdb_config: DuckDBConfiguration, db_path: Optional[str] = None
+    ):
         self._config: DuckDBConfiguration = duckdb_config
         self.db_path: str = db_path or ":memory:"
         self.conn: Optional[duckdb.DuckDBPyConnection] = None
@@ -126,7 +130,9 @@ class DuckDBRepository:
             logger.info("setting %s to %s", k, v)
             self.conn.execute(f"SET {k}='{v}'")
 
-    def execute(self, query: str, params: Optional[Union[dict, list, tuple]] = None) -> duckdb.DuckDBPyConnection:
+    def execute(
+        self, query: str, params: Optional[Union[dict, list, tuple]] = None
+    ) -> duckdb.DuckDBPyConnection:
         """
         Execute a SQL query on the DuckDB connection.
 
@@ -181,7 +187,9 @@ class DuckDBRepository:
         finally:
             self._in_transaction = False
 
-    def execute_transaction(self, query: str, params: Optional[Union[dict, list, tuple]] = None) -> None:
+    def execute_transaction(
+        self, query: str, params: Optional[Union[dict, list, tuple]] = None
+    ) -> None:
         """
         Execute a SQL query within a transaction.
 
@@ -202,7 +210,9 @@ class DuckDBRepository:
             self.execute(query, params)
 
 
-def get_default_duckdb_client_from_env(env_file_path: Optional[str] = None, is_container: bool = False) -> DuckDBRepository:
+def get_default_duckdb_client_from_env(
+    env_file_path: Optional[str] = None, is_container: bool = False
+) -> DuckDBRepository:
     """
     Get the default DuckDB client configured from environment variables and a .env file.
 
@@ -226,5 +236,7 @@ def get_default_duckdb_client_from_env(env_file_path: Optional[str] = None, is_c
     config = DuckDBConfiguration.from_env(env_file_path)
     if is_container and "localhost" in config.s3_endpoint:
         logger.info("replacing localhost with host.docker.internal")
-        config.s3_endpoint = config.s3_endpoint.replace("localhost", "host.docker.internal")
+        config.s3_endpoint = config.s3_endpoint.replace(
+            "localhost", "host.docker.internal"
+        )
     return DuckDBRepository(config)

@@ -79,6 +79,8 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/tests:/opt/airflow/tests
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/.env:/opt/airflow/.env
+    - ${AIRFLOW_PROJ_DIR:-.}/init-scripts:/opt/airflow/init-scripts
+    - ${AIRFLOW_PROJ_DIR:-.}/include:/opt/airflow/include
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -98,13 +100,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - ./init-scripts/postgres/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
       retries: 5
       start_period: 5s
     restart: always
-
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
@@ -298,6 +300,24 @@ services:
       - "9001:9001"
     volumes:
       - ./minio/data:/data
+
+  airflow-post-hook:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    user: "airflow"
+    # yamllint disable rule:line-length
+    env_file:
+      - .env
+    command:
+      - -c
+      - |
+        if [ -f /opt/airflow/init-scripts/airflow/init-connections.sh ]; then
+        chmod +x /opt/airflow/init-scripts/airflow/init-connections.sh
+        /opt/airflow/init-scripts/airflow/init-connections.sh
+        fi
+    depends_on:
+      airflow-webserver:
+        condition: service_started
 
 volumes:
   postgres-db-volume:

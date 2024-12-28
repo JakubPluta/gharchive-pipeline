@@ -1,10 +1,10 @@
 
 
 prepdir:
-	@echo "Creating directories for airflow: ./dags, ./logs, ./plugins, ./config, ./tests (if not exist)"
-	mkdir -p ./dags ./logs ./plugins ./tests ./config
+	@echo "Creating directories for airflow: ./dags, ./logs, ./plugins, ./config, ./tests ./include (if not exist)"
+	mkdir -p ./dags ./logs ./plugins ./tests ./config ./include
 	@echo "creating default env file"
-	./scripts/init_dotenv.sh
+	./init-env.sh
 
 local-install:
 	@echo "Installing dependencies locally"
@@ -53,5 +53,5 @@ postgres-conn:
 	  --conn-host 'postgres' \
 	  --conn-login 'airflow' \
 	  --conn-password 'airflow' \
-	  --conn-schema 'airflow' \
+	  --conn-schema 'dev' \
 	  --conn-port 5432
