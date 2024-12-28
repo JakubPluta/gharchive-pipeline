@@ -66,7 +66,6 @@ def _get_github_archive(date: pendulum.DateTime) -> bytes | None:
     catchup=True,
     tags=["github"],
     max_active_runs=1,
-    concurrency=1,
     template_searchpath=SQL_TEMPLATES_PATH,
 )
 def github_archive_pipeline():

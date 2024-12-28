@@ -6,7 +6,7 @@ SELECT
     COUNT(*) FILTER (WHERE is_public) AS total_public_events,
     COUNT(*) FILTER (WHERE NOT is_public) AS total_private_events
 FROM {{ params.table }}
-WHERE event_created_at >= '{{ execution_date - macros.timedelta(days=1)  }}'
+WHERE event_created_at >= '{{ prev_execution_date  }}'
   AND event_created_at < '{{ execution_date }}'
 GROUP BY aggregation_date, event_type
 ON CONFLICT (aggregation_date, event_type) DO UPDATE
